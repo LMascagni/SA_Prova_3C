@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <SPI.h>
-
+#define N_CHANNELS 4
 const int CS_PIN = 5;
 const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
@@ -15,6 +15,7 @@ struct Channels
 };
 
 Channels channels;
+float v[N_CHANNELS];
 
 int readADC(uint16_t channel)
 {
@@ -34,7 +35,7 @@ void setup()
 {
   Serial.begin(115200);
   SPI.begin();
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(1500000, MSBFIRST, SPI_MODE0));
 
   pinMode(CS_PIN, OUTPUT);
   digitalWrite(CS_PIN, HIGH);
@@ -42,17 +43,13 @@ void setup()
 
 void loop()
 {
-  for (uint16_t channel = 0; channel < 4; ++channel)
+  for (uint16_t channel = 0; channel < N_CHANNELS; ++channel)
   {
     int rawValue = readADC(channel);
-    float tension = ((float)rawValue/4095.0)*3.3;
-    Serial.print("Canale ");
-    Serial.print(channel);
-    Serial.print(": Lettura grezza = ");
-    Serial.print(rawValue);
-    Serial.print(", Tensione = ");
-    Serial.print(" V");
-    Serial.println(tension,4);
+    v[channel] = ((float)rawValue/4095.0)*3.3;
+
   }
+
+   
   delay(50); // campionamento 20Hz
 }
