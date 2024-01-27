@@ -21,43 +21,54 @@ const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
 const int CLK_PIN = 18;
 
+hw_timer_t *timer0 = NULL;
 
-float v[N_CHANNELS];
+volatile float v[N_CHANNELS];
 
-int readADC(uint16_t channel)
-{
-  int rawValue2;
-  byte control = 0b00000110;
-  channel <<= 14;
-
-  digitalWrite(CS_PIN, LOW);
-  delayMicroseconds(1);
-  SPI.transfer(control);
-  rawValue2 = SPI.transfer16(channel);
-  digitalWrite(CS_PIN, HIGH);
-  return rawValue2;
-}
+void IRAM_ATTR readADC();
 
 void setup()
 {
+  // inizializzazione comunicazione seriale
   Serial.begin(115200);
+
+  // setup comunicazione SPI
   SPI.begin();
   SPI.beginTransaction(SPISettings(1500000, MSBFIRST, SPI_MODE0));
 
+  // setup timer
+  timer0 = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer0, readADC, true);
+  timerAlarmWrite(timer0, 1000000, true);
+  timerAlarmEnable(timer0);
+
+  // setup pin CS (GPIO_5)
   pinMode(CS_PIN, OUTPUT);
   digitalWrite(CS_PIN, HIGH);
 }
 
 void loop()
 {
-  for (uint16_t channel = 0; channel < N_CHANNELS; ++channel)
-  {
-    int rawValue = readADC(channel);
-    v[channel] = ((float)rawValue/4095.0)*3.3;
-  }
+  // stampa dei valori su teleplot
   for(int channel=0; channel<N_CHANNELS; channel++){
-    Serial.println(">ch" + String(channel) + ": " + String(v[channel]));
+    Serial.println(">ch" + String(channel) + ": " + String(v[channel])); // formato di stringa per teleplot
   }
-   
-  delayMicroseconds(100); // campionamento 20Hz
+  
+}
+
+void IRAM_ATTR readADC()
+{
+  for (uint16_t ch = 0; ch < N_CHANNELS; ch++)
+  {
+    int rawValue;
+    byte control = 0b00000110;
+    uint16_t channel = ch << 14;
+
+    digitalWrite(CS_PIN, LOW);
+    delayMicroseconds(1);
+    SPI.transfer(control);
+    rawValue = SPI.transfer16(channel);
+    digitalWrite(CS_PIN, HIGH);
+    v[ch] = ((float)rawValue / 4095.0) * 3.3;
+  }
 }
