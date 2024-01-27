@@ -1,20 +1,14 @@
 #include <Arduino.h>
 #include <SPI.h>
+
 #define N_CHANNELS 4
+
 const int CS_PIN = 5;
 const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
 const int CLK_PIN = 18;
 
-struct Channels
-{
-  float channel_0;
-  float channel_1;
-  float channel_2;
-  float channel_3;
-};
 
-Channels channels;
 float v[N_CHANNELS];
 
 int readADC(uint16_t channel)
@@ -47,9 +41,10 @@ void loop()
   {
     int rawValue = readADC(channel);
     v[channel] = ((float)rawValue/4095.0)*3.3;
-
   }
-
+  for(int channel=0; channel<N_CHANNELS; channel++){
+    Serial.println("ch" + String(channel) + ": " + String(v[channel]));
+  }
    
-  delay(50); // campionamento 20Hz
+  delayMicroseconds(100); // campionamento 20Hz
 }
