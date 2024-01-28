@@ -78,6 +78,7 @@ void IRAM_ATTR readADC()
 
     digitalWrite(CS_PIN, HIGH);
 
+    //controllo del bit 13 di rawValue
     if (rawValue & (1 << 12))
     {
       // conversione
