@@ -21,6 +21,10 @@ const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
 const int CLK_PIN = 18;
 
+
+//per ora inutile
+int frequency = 8000; // Hz
+
 hw_timer_t *timer0 = NULL;
 
 volatile float v[N_CHANNELS];
@@ -49,26 +53,35 @@ void setup()
 
 void loop()
 {
+  Serial.println(millis());
+
   // stampa dei valori su teleplot
-  for(int channel=0; channel<N_CHANNELS; channel++){
+  for (int channel = 0; channel < N_CHANNELS; channel++)
+  {
     Serial.println(">ch" + String(channel) + ": " + String(v[channel])); // formato di stringa per teleplot
   }
-  
 }
 
 void IRAM_ATTR readADC()
 {
   for (uint16_t ch = 0; ch < N_CHANNELS; ch++)
   {
-    int rawValue;
+    uint16_t rawValue;
     byte control = 0b00000110;
     uint16_t channel = ch << 14;
 
     digitalWrite(CS_PIN, LOW);
     delayMicroseconds(1);
+
     SPI.transfer(control);
     rawValue = SPI.transfer16(channel);
+
     digitalWrite(CS_PIN, HIGH);
-    v[ch] = ((float)rawValue / 4095.0) * 3.3;
+
+    if (rawValue & (1 << 12))
+    {
+      // conversione
+      v[ch] = ((float)rawValue / 4095.0) * 3.3;
+    }
   }
 }
