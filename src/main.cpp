@@ -43,7 +43,7 @@ void setup()
   // setup timer
   timer0 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer0, readADC, true);
-  timerAlarmWrite(timer0, 1000000, true);
+  timerAlarmWrite(timer0, 50000, true);
   timerAlarmEnable(timer0);
 
   // setup pin CS (GPIO_5)
