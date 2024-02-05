@@ -37,13 +37,13 @@ void setup()
   Serial.begin(115200);
 
   // setup comunicazione SPI
-  SPI.begin();
-  SPI.beginTransaction(SPISettings(1500000, MSBFIRST, SPI_MODE0));
+  SPI.begin(CLK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
+  SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
 
   // setup timer
   timer0 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer0, readADC, true);
-  timerAlarmWrite(timer0, 50000, true);
+  timerAlarmWrite(timer0, 125, true);
   timerAlarmEnable(timer0);
 
   // setup pin CS (GPIO_5)
@@ -53,13 +53,13 @@ void setup()
 
 void loop()
 {
-  Serial.println(millis());
+ // Serial.println(millis());
 
-  // stampa dei valori su teleplot
-  for (int channel = 0; channel < N_CHANNELS; channel++)
-  {
-    Serial.println(">ch" + String(channel) + ": " + String(v[channel])); // formato di stringa per teleplot
-  }
+  // // stampa dei valori su teleplot
+  // for (int channel = 0; channel < N_CHANNELS; channel++)
+  // {
+  //   Serial.println(">ch" + String(channel) + ": " + String(v[channel])); // formato di stringa per teleplot
+  // }
 }
 
 void IRAM_ATTR readADC()
@@ -71,7 +71,7 @@ void IRAM_ATTR readADC()
     uint16_t channel = ch << 14;
 
     digitalWrite(CS_PIN, LOW);
-    delayMicroseconds(1);
+    //delayMicroseconds(1);
 
     SPI.transfer(control);
     rawValue = SPI.transfer16(channel);
@@ -79,10 +79,10 @@ void IRAM_ATTR readADC()
     digitalWrite(CS_PIN, HIGH);
 
     //controllo del bit 13 di rawValue
-    if (rawValue & (1 << 12))
-    {
+    //if (rawValue & (1 << 12))
+    //{
       // conversione
-      v[ch] = ((float)rawValue / 4095.0) * 3.3;
-    }
+     // v[ch] = ((float)rawValue / 4095.0) * 3.3;
+   // }
   }
 }
