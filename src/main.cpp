@@ -13,6 +13,7 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <UDT/data.h>
 
 #define N_CHANNELS 4
 
@@ -21,8 +22,9 @@ const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
 const int CLK_PIN = 18;
 
-static const uint8_t msgQueueLen = 5 * N_CHANNELS; //lunghezza * numero di canali
+static const uint8_t msgQueueLen = 10; //dimensione della coda di comunicazione tra ISR e stampa
 static QueueHandle_t msg_queue;
+volatile i16Data campione;            // un campionamento dei 4 canali della ISR
 
 //per ora inutile
 int frequency = 8000; // Hz
@@ -33,7 +35,7 @@ volatile float v[N_CHANNELS];
 
 void IRAM_ATTR readADC();
 
-void printTask();
+void printTask(void *parameters);
 
 void setup()
 {
@@ -49,35 +51,39 @@ void setup()
   timer0 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer0, readADC, true);
   timerAlarmWrite(timer0, 125, true);
-  timerAlarmEnable(timer0);
-
+  
+  // impostazione della linea di chip select dell'ADC
   pinMode(CS_PIN, OUTPUT);
   digitalWrite(CS_PIN, HIGH);
 
-  msg_queue = xQueueCreate(msgQueueLen, sizeof(int32_t));
+// creazione della coda per la comunicazione tra ISR e stampa dati
+  msg_queue = xQueueCreate(msgQueueLen, sizeof(i16Data));
   
+  // creazione ed avvio del task di stampa
   xTaskCreatePinnedToCore(
       printTask,
       "Print Task",
-      1024,
+      2048,
       NULL,
       1,
       NULL,
-      APP_CPU_NUM
+      PRO_CPU_NUM
   );
+
+  // avvio del timer per il triggering della ISR
+  timerAlarmEnable(timer0);
 }
 
 void loop()
 {
-  // stampa dei valori su teleplot
-  // for (int channel = 0; channel < N_CHANNELS; channel++)
-  // {
-  //   Serial.println(">ch" + String(channel) + ": " + String(v[channel])); // formato di stringa per teleplot
-  // }
+// può rimanere vuoto
 }
+
 
 void IRAM_ATTR readADC()
 {
+  BaseType_t xHigherPriorityTaskWoken; 
+
   for (uint16_t ch = 0; ch < N_CHANNELS; ch++)
   {
     uint16_t rawValue;
@@ -90,9 +96,10 @@ void IRAM_ATTR readADC()
     rawValue = SPI.transfer16(channel);
 
     digitalWrite(CS_PIN, HIGH);
+    
 
-    if(xQueueSend(msg_queue, (void *)&rawValue, 10) != pdTRUE){
-      Serial.println("coda piena");
+    if(xQueueSendFromISR(msg_queue, (void *)&rawValue, &xHigherPriorityTaskWoken) != pdTRUE){
+    //  Serial.println("coda piena");
     }
 
     //controllo del bit 13 di rawValue
@@ -106,17 +113,20 @@ void IRAM_ATTR readADC()
 
 void printTask(void *parameters)
 {
-  int32_t rawValue;
+  i16Data rawValue;
   
   while (1)
   {
     if (xQueueReceive(msg_queue, (void *)&rawValue, 0) == pdTRUE)
     {
-      Serial.println(rawValue);
+      Serial.println(rawValue.ch0);
+      Serial.println(rawValue.ch1);
+      Serial.println(rawValue.ch2);
+      Serial.println(rawValue.ch3);            
     }
     else
     {
-      Serial.println("attesa dati...");
+      //Serial.println("attesa dati...");
     }
     
   }
