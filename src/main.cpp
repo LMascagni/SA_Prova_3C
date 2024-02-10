@@ -22,11 +22,11 @@ const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
 const int CLK_PIN = 18;
 
-static const uint8_t msgQueueLen = 10; //dimensione della coda di comunicazione tra ISR e stampa
+static const uint8_t msgQueueLen = 10; // dimensione della coda di comunicazione tra ISR e stampa
 static QueueHandle_t msg_queue;
-volatile i16Data campione;            // un campionamento dei 4 canali della ISR
+volatile i16Data campione; // un campionamento dei 4 canali della ISR
 
-//per ora inutile
+// per ora inutile
 int frequency = 8000; // Hz
 
 hw_timer_t *timer0 = NULL;
@@ -51,14 +51,14 @@ void setup()
   timer0 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer0, readADC, true);
   timerAlarmWrite(timer0, 125, true);
-  
+
   // impostazione della linea di chip select dell'ADC
   pinMode(CS_PIN, OUTPUT);
   digitalWrite(CS_PIN, HIGH);
 
-// creazione della coda per la comunicazione tra ISR e stampa dati
+  // creazione della coda per la comunicazione tra ISR e stampa dati
   msg_queue = xQueueCreate(msgQueueLen, sizeof(i16Data));
-  
+
   // creazione ed avvio del task di stampa
   xTaskCreatePinnedToCore(
       printTask,
@@ -67,8 +67,7 @@ void setup()
       NULL,
       1,
       NULL,
-      PRO_CPU_NUM
-  );
+      PRO_CPU_NUM);
 
   // avvio del timer per il triggering della ISR
   timerAlarmEnable(timer0);
@@ -76,45 +75,73 @@ void setup()
 
 void loop()
 {
-// può rimanere vuoto
+  // può rimanere vuoto
 }
-
 
 void IRAM_ATTR readADC()
 {
-  BaseType_t xHigherPriorityTaskWoken; 
+  BaseType_t xHigherPriorityTaskWoken;
 
-  for (uint16_t ch = 0; ch < N_CHANNELS; ch++)
+  // for (uint16_t ch = 0; ch < N_CHANNELS; ch++)
+  // {
+  uint16_t rawValue;
+  byte control = 0b00000110;
+  uint16_t channel;
+  uint16_t ch;
+  // canale 0
+  ch = 0;
+  channel = ch << 14;
+
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(control);
+  campione.ch0 = SPI.transfer16(channel) & 0x0fff;
+  digitalWrite(CS_PIN, HIGH);
+
+  // canale 1
+  ch = 1;
+  channel = ch << 14;
+
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(control);
+  campione.ch1 = SPI.transfer16(channel) & 0x0fff;
+  digitalWrite(CS_PIN, HIGH);
+
+  // canale 2
+  ch = 2;
+  channel = ch << 14;
+
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(control);
+  campione.ch2 = SPI.transfer16(channel) & 0x0fff;
+  digitalWrite(CS_PIN, HIGH);
+
+  // canale 3
+  ch = 3;
+  channel = ch << 14;
+
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(control);
+  campione.ch3 = SPI.transfer16(channel) & 0x0fff;
+  digitalWrite(CS_PIN, HIGH);
+
+  if (xQueueSendFromISR(msg_queue, (void *)&campione, &xHigherPriorityTaskWoken) != pdTRUE)
   {
-    uint16_t rawValue;
-    byte control = 0b00000110;
-    uint16_t channel = ch << 14;
-
-    digitalWrite(CS_PIN, LOW);
-
-    SPI.transfer(control);
-    rawValue = SPI.transfer16(channel);
-
-    digitalWrite(CS_PIN, HIGH);
-    
-
-    if(xQueueSendFromISR(msg_queue, (void *)&rawValue, &xHigherPriorityTaskWoken) != pdTRUE){
     //  Serial.println("coda piena");
-    }
-
-    //controllo del bit 13 di rawValue
-    //if (rawValue & (1 << 12))
-    //{
-      // conversione
-     // v[ch] = ((float)rawValue / 4095.0) * 3.3;
-   // }
   }
+
+  // controllo del bit 13 di rawValue
+  // if (rawValue & (1 << 12))
+  //{
+  //  conversione
+  // v[ch] = ((float)rawValue / 4095.0) * 3.3;
+  // }
+  //}
 }
 
 void printTask(void *parameters)
 {
   i16Data rawValue;
-  
+
   while (1)
   {
     if (xQueueReceive(msg_queue, (void *)&rawValue, 0) == pdTRUE)
@@ -122,12 +149,11 @@ void printTask(void *parameters)
       Serial.println(rawValue.ch0);
       Serial.println(rawValue.ch1);
       Serial.println(rawValue.ch2);
-      Serial.println(rawValue.ch3);            
+      Serial.println(rawValue.ch3);
     }
     else
     {
-      //Serial.println("attesa dati...");
+      // Serial.println("attesa dati...");
     }
-    
   }
 }
