@@ -22,7 +22,7 @@ const int MOSI_PIN = 23;
 const int MISO_PIN = 19;
 const int CLK_PIN = 18;
 
-static const uint8_t msgQueueLen = 10; // dimensione della coda di comunicazione tra ISR e stampa
+static const uint8_t msgQueueLen = 100; // dimensione della coda di comunicazione tra ISR e stampa
 static QueueHandle_t msg_queue;
 volatile i16Data campione; // un campionamento dei 4 canali della ISR
 
@@ -40,7 +40,7 @@ void printTask(void *parameters);
 void setup()
 {
   // inizializzazione comunicazione seriale
-  Serial.begin(115200);
+  Serial.begin(921600);
   Serial.println("SA_PROVA_03C (v2.0)");
 
   // setup comunicazione SPI
@@ -126,7 +126,7 @@ void IRAM_ATTR readADC()
 
   if (xQueueSendFromISR(msg_queue, (void *)&campione, &xHigherPriorityTaskWoken) != pdTRUE)
   {
-    //  Serial.println("coda piena");
+    
   }
 
   // controllo del bit 13 di rawValue
@@ -146,10 +146,20 @@ void printTask(void *parameters)
   {
     if (xQueueReceive(msg_queue, (void *)&rawValue, 0) == pdTRUE)
     {
+      Serial.print(">ch0:");
       Serial.println(rawValue.ch0);
+      Serial.print(">ch1:");
       Serial.println(rawValue.ch1);
+      Serial.print(">ch2:");
       Serial.println(rawValue.ch2);
+      Serial.print(">ch3:");
       Serial.println(rawValue.ch3);
+
+      if(!uxQueueSpacesAvailable(msg_queue )){
+        timerAlarmDisable(timer0);
+      }else{
+        timerAlarmEnable(timer0);
+      }
     }
     else
     {
