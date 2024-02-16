@@ -82,8 +82,8 @@ void IRAM_ATTR readADC()
 {
   BaseType_t xHigherPriorityTaskWoken;
 
-  // for (uint16_t ch = 0; ch < N_CHANNELS; ch++)
-  // {
+  BaseType_t task_woken = pdFALSE;
+
   uint16_t rawValue;
   byte control = 0b00000110;
   uint16_t channel;
@@ -129,13 +129,11 @@ void IRAM_ATTR readADC()
     
   }
 
-  // controllo del bit 13 di rawValue
-  // if (rawValue & (1 << 12))
-  //{
-  //  conversione
-  // v[ch] = ((float)rawValue / 4095.0) * 3.3;
-  // }
-  //}
+  if (xHigherPriorityTaskWoken)
+  {
+    portYIELD_FROM_ISR();
+  }
+
 }
 
 void printTask(void *parameters)
@@ -154,6 +152,8 @@ void printTask(void *parameters)
       Serial.println(rawValue.ch2);
       Serial.print(">ch3:");
       Serial.println(rawValue.ch3);
+
+      Serial.println(uxQueueSpacesAvailable(msg_queue ));
 
       if(!uxQueueSpacesAvailable(msg_queue )){
         timerAlarmDisable(timer0);
