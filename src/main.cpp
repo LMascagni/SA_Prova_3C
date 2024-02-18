@@ -9,9 +9,6 @@
   La ESP32 si collega in SPI con un ADC a 4 canali MCP3204, che ha risoluzione di 12bit.
   Il programma acquisisce le tensioni dei 4 canali (ciascuno condizionato nell'intervallo da 0 a 3.3V) con velocità di campionamento di 10 campionamenti al secondo.
   I dati vengono emessi sul terminale seriale per essere visualizzati con TelePlot in VS Code.
-
-  Quando ho scritto questo codice, solo io e dio sapevamo come funzionava. 
-  Ora solo dio lo sà.
 */
 
 #include <Arduino.h>
@@ -30,11 +27,9 @@ static QueueHandle_t msg_queue;
 volatile i16Data campione; // un campionamento dei 4 canali della ISR
 
 // per ora inutile
-int frequency = 8000; // Hz
+int frequency = 8000; // in Hz, numero di campionamenti al secondo
 
 hw_timer_t *timer0 = NULL;
-
-volatile float v[N_CHANNELS];
 
 void IRAM_ATTR readADC();
 
@@ -64,13 +59,14 @@ void setup()
 
   // creazione ed avvio del task di stampa
   xTaskCreatePinnedToCore(
-      printTask,
-      "Print Task",
-      2048,
-      NULL,
-      1,
-      NULL,
-      PRO_CPU_NUM);
+    printTask,
+    "Print Task",
+    2048,
+    NULL,
+    1,
+    NULL,
+    PRO_CPU_NUM
+  );
 
   // avvio del timer per il triggering della ISR
   timerAlarmEnable(timer0);
@@ -85,7 +81,7 @@ void IRAM_ATTR readADC()
 {
   BaseType_t xHigherPriorityTaskWoken;
 
-  BaseType_t task_woken = pdFALSE;
+  //BaseType_t task_woken = pdFALSE;
 
   uint16_t rawValue;
   byte control = 0b00000110;
@@ -131,12 +127,12 @@ void IRAM_ATTR readADC()
   {
     
   }
-
+/*
   if (xHigherPriorityTaskWoken)
   {
     portYIELD_FROM_ISR();
   }
-
+*/
 }
 
 void printTask(void *parameters)
