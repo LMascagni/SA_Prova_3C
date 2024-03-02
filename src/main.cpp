@@ -26,7 +26,6 @@ static const uint8_t msgQueueLen = 100; // dimensione della coda di comunicazion
 static QueueHandle_t msg_queue;
 volatile i16Data campione; // un campionamento dei 4 canali della ISR
 
-// per ora inutile
 int frequency = 8000; // in Hz, numero di campionamenti al secondo
 
 hw_timer_t *timer0 = NULL;
@@ -44,15 +43,16 @@ void setup()
   // setup comunicazione SPI
   SPI.begin(CLK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
   SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+  
+  // impostazione della linea di chip select dell'ADC
+  pinMode(CS_PIN, OUTPUT);
+  digitalWrite(CS_PIN, HIGH);
+
 
   // setup timer
   timer0 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer0, readADC, true);
-  timerAlarmWrite(timer0, 125, true);
-
-  // impostazione della linea di chip select dell'ADC
-  pinMode(CS_PIN, OUTPUT);
-  digitalWrite(CS_PIN, HIGH);
+  timerAlarmWrite(timer0, int((1/frequency)*1000000), true);
 
   // creazione della coda per la comunicazione tra ISR e stampa dati
   msg_queue = xQueueCreate(msgQueueLen, sizeof(i16Data));
@@ -81,58 +81,49 @@ void IRAM_ATTR readADC()
 {
   BaseType_t xHigherPriorityTaskWoken;
 
-  //BaseType_t task_woken = pdFALSE;
-
   uint16_t rawValue;
-  byte control = 0b00000110;
+  uint16_t channel_shifted;
   uint16_t channel;
-  uint16_t ch;
+  byte control = 0b00000110;
+
   // canale 0
-  ch = 0;
-  channel = ch << 14;
+  channel = 0;
+  channel_shifted = channel << 14;
 
   digitalWrite(CS_PIN, LOW);
   SPI.transfer(control);
-  campione.ch0 = SPI.transfer16(channel) & 0x0fff;
+  campione.ch0 = SPI.transfer16(channel_shifted) & 0x0fff;
   digitalWrite(CS_PIN, HIGH);
 
   // canale 1
-  ch = 1;
-  channel = ch << 14;
+  channel = 1;
+  channel_shifted = channel << 14;
 
   digitalWrite(CS_PIN, LOW);
   SPI.transfer(control);
-  campione.ch1 = SPI.transfer16(channel) & 0x0fff;
+  campione.ch1 = SPI.transfer16(channel_shifted) & 0x0fff;
   digitalWrite(CS_PIN, HIGH);
 
   // canale 2
-  ch = 2;
-  channel = ch << 14;
+  channel = 2;
+  channel_shifted = channel << 14;
 
   digitalWrite(CS_PIN, LOW);
   SPI.transfer(control);
-  campione.ch2 = SPI.transfer16(channel) & 0x0fff;
+  campione.ch2 = SPI.transfer16(channel_shifted) & 0x0fff;
   digitalWrite(CS_PIN, HIGH);
 
   // canale 3
-  ch = 3;
-  channel = ch << 14;
+  channel = 3;
+  channel_shifted = channel << 14;
 
   digitalWrite(CS_PIN, LOW);
   SPI.transfer(control);
-  campione.ch3 = SPI.transfer16(channel) & 0x0fff;
+  campione.ch3 = SPI.transfer16(channel_shifted) & 0x0fff;
   digitalWrite(CS_PIN, HIGH);
 
-  if (xQueueSendFromISR(msg_queue, (void *)&campione, &xHigherPriorityTaskWoken) != pdTRUE)
-  {
-    
-  }
-/*
-  if (xHigherPriorityTaskWoken)
-  {
-    portYIELD_FROM_ISR();
-  }
-*/
+  xQueueSendFromISR(msg_queue, (void *)&campione, &xHigherPriorityTaskWoken);
+
 }
 
 void printTask(void *parameters)
@@ -159,10 +150,6 @@ void printTask(void *parameters)
       }else{
         timerAlarmEnable(timer0);
       }
-    }
-    else
-    {
-      // Serial.println("attesa dati...");
     }
   }
 }
